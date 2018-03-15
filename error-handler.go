@@ -1,4 +1,4 @@
-package domain
+package ddd
 
 import "github.com/gin-gonic/gin/json"
 

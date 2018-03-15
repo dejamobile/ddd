@@ -6,9 +6,6 @@ The main.go file is only here for test purpose
 package ddd
 
 import (
-	_ "./domain"
-	_ "./infrastructure"
-	_ "./lib"
 )
 
 /*

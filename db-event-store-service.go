@@ -1,9 +1,6 @@
-package infrastructure
+package ddd
 
 import (
-	"../domain"
-	"../lib"
-
 	"log"
 	"database/sql"
 	"errors"
@@ -12,7 +9,7 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-func NewEventStoreService(dns string) domain.EventStoreService {
+func NewEventStoreService(dns string) EventStoreService {
 	return &eventStoreService{dns: dns}
 }
 
@@ -25,7 +22,7 @@ func (es *eventStoreService) Initialize() {
 	log.Println("Handling database connection asynschronously")
 	dbChannel := make(chan *sql.DB, 1)
 	errorChannel := make(chan error, 1)
-	go lib.Connect("mysql", es.dns, dbChannel, errorChannel)
+	go Connect("mysql", es.dns, dbChannel, errorChannel)
 	select {
 	case db := <-dbChannel:
 		es.DB = db
@@ -35,8 +32,8 @@ func (es *eventStoreService) Initialize() {
 	}
 }
 
-func (es eventStoreService) Store(event *domain.DomainEvent, payload string) (err error) {
-	log.Printf("Entering  eventStoreService.Store [ %s ]\n", event.EventType)
+func (es eventStoreService) Store(event *DomainEvent, payload string) (err error) {
+	log.Printf("Entering  eventStoreService.Store [ %s ]\n", EventType)
 	// check if nil pointer passed
 	if event == nil {
 		err = errors.New("cannot save nil event")
@@ -54,9 +51,9 @@ func (es eventStoreService) Store(event *domain.DomainEvent, payload string) (er
 	res, err := stmt.Exec(
 		eventUuid.Bytes(),
 		"RECORDED",
-		event.EventType,
-		event.Aggregate.AggregateType,
-		uuid.Must(uuid.FromString(event.Aggregate.Id)).Bytes(),
+		EventType,
+		Aggregate.AggregateType,
+		uuid.Must(uuid.FromString(Aggregate.Id)).Bytes(),
 		payload,
 		uuid.Must(uuid.FromString(event.TraceId)).Bytes(),
 		event.When,
@@ -65,7 +62,7 @@ func (es eventStoreService) Store(event *domain.DomainEvent, payload string) (er
 	if err != nil {
 		return
 	}
-	log.Printf("query : completed with success, Rows affected : %d", lib.Rows(res.RowsAffected()))
+	log.Printf("query : completed with success, Rows affected : %d", Rows(res.RowsAffected()))
 	return
 }
 

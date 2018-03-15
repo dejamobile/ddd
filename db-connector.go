@@ -1,4 +1,4 @@
-package lib
+package ddd
 
 import (
 	"database/sql"

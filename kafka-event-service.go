@@ -1,8 +1,6 @@
-package infrastructure
+package ddd
 
 import (
-	"../domain"
-
 	"fmt"
 	"os"
 	"errors"
@@ -15,7 +13,7 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-func NewKafkaPublisherService(brokerUrl string, eventStoreService domain.EventStoreService) (es domain.EventPublisherService, err error) {
+func NewKafkaPublisherService(brokerUrl string, eventStoreService EventStoreService) (es EventPublisherService, err error) {
 	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokerUrl})
 	if err != nil {
 		return
@@ -31,7 +29,7 @@ func NewKafkaPublisherService(brokerUrl string, eventStoreService domain.EventSt
 type kafkaPublisherService struct {
 	brokerUrl string
 	*kafka.Producer
-	domain.EventStoreService
+	EventStoreService
 	log.Logger
 }
 
@@ -39,7 +37,7 @@ type kafkaSubscriberService struct {
 	brokerUrl                string
 	*kafka.Consumer
 	log.Logger
-	domain.EventStoreService
+	EventStoreService
 	funcMap					map[string]map[string]func(message *kafka.Message) (error)
 	hasHandler				bool
 }
@@ -60,7 +58,7 @@ func (ks kafkaPublisherService) Publish(event interface{}) (err error) {
 	return
 }
 
-func NewKafkaSubscriberService(brokerUrl string, groupId string, eventStoreService domain.EventStoreService) (domain.EventSubscriberService, error) {
+func NewKafkaSubscriberService(brokerUrl string, groupId string, eventStoreService EventStoreService) (EventSubscriberService, error) {
 	var err error
 	ks := kafkaSubscriberService{
 		brokerUrl:                brokerUrl,
@@ -174,10 +172,10 @@ func (ks kafkaSubscriberService) onKafkaMessageReceived(message *kafka.Message) 
 }
 
 //Parse the event to retrieve the DomainEvent object
-func (ks kafkaSubscriberService) toDomainEvent(value []byte) (domain.DomainEvent, error) {
+func (ks kafkaSubscriberService) toDomainEvent(value []byte) (DomainEvent, error) {
 	var err error
 
-	domainEvent := domain.DomainEvent{}
+	domainEvent := DomainEvent{}
 	jsonParsed, err := gabs.ParseJSON(value)
 	if err != nil {
 		ks.Log("error", fmt.Sprintf("Cannot parse JSON kafka message : %s", err.Error()))
@@ -199,7 +197,7 @@ func (ks kafkaSubscriberService) toDomainEvent(value []byte) (domain.DomainEvent
 }
 
 //Store the event from []byte
-func (ks kafkaSubscriberService) store(event []byte) (domainEvent domain.DomainEvent, err error) {
+func (ks kafkaSubscriberService) store(event []byte) (domainEvent DomainEvent, err error) {
 	domainEvent, err = ks.toDomainEvent(event)
 	if err != nil {
 		return
@@ -209,10 +207,10 @@ func (ks kafkaSubscriberService) store(event []byte) (domainEvent domain.DomainE
 }
 
 //Store the event from interface
-func store(eventStoreService domain.EventStoreService, event interface{}) (domainEvent domain.DomainEvent, payload []byte, err error) {
+func store(eventStoreService EventStoreService, event interface{}) (domainEvent DomainEvent, payload []byte, err error) {
 	rf := reflect.ValueOf(event)
-	domainEvent = rf.FieldByName("DomainEvent").Interface().(domain.DomainEvent)
-	payload = domain.JsonEvent(event)
+	domainEvent = rf.FieldByName("DomainEvent").Interface().(DomainEvent)
+	payload = JsonEvent(event)
 	// call EventStoreService
 	err = eventStoreService.Store(&domainEvent, string(payload))
 	return
