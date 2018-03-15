@@ -33,7 +33,7 @@ func (es *eventStoreService) Initialize() {
 }
 
 func (es eventStoreService) Store(event *DomainEvent, payload string) (err error) {
-	log.Printf("Entering  eventStoreService.Store [ %s ]\n", EventType)
+	log.Printf("Entering  eventStoreService.Store [ %s ]\n", event.EventType)
 	// check if nil pointer passed
 	if event == nil {
 		err = errors.New("cannot save nil event")
@@ -51,9 +51,9 @@ func (es eventStoreService) Store(event *DomainEvent, payload string) (err error
 	res, err := stmt.Exec(
 		eventUuid.Bytes(),
 		"RECORDED",
-		EventType,
-		Aggregate.AggregateType,
-		uuid.Must(uuid.FromString(Aggregate.Id)).Bytes(),
+		event.EventType,
+		event.Aggregate.AggregateType,
+		uuid.Must(uuid.FromString(event.Aggregate.Id)).Bytes(),
 		payload,
 		uuid.Must(uuid.FromString(event.TraceId)).Bytes(),
 		event.When,
