@@ -1,8 +1,8 @@
 package infrastructure
 
 import (
-	"ddd/domain"
-	"ddd/lib"
+	"../domain"
+	"../lib"
 
 	"log"
 	"database/sql"

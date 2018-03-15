@@ -6,19 +6,9 @@ The main.go file is only here for test purpose
 package main
 
 import (
-	"ddd/infrastructure"
-	"ddd/domain"
-
-	"fmt"
-	"net/http"
-	"os"
-	"encoding/json"
-
-	"github.com/gorilla/mux"
-	"github.com/satori/go.uuid"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
+/*
 var (
 	eventPublisherService domain.EventPublisherService
 	eventSubscriberService domain.EventSubscriberService
@@ -151,6 +141,6 @@ func anotherEventHandler(message *kafka.Message) (err error){
 	fmt.Println(event)
 
 	return
-}
+}*/
 
 
