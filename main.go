@@ -3,7 +3,7 @@ The main.go file is only here for test purpose
 */
 
 
-package main
+package ddd
 
 import (
 )
