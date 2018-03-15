@@ -1,7 +1,7 @@
 package infrastructure
 
 import (
-	"ddd/domain"
+	"../domain"
 
 	"fmt"
 	"os"
