@@ -1,4 +1,4 @@
-package domain
+package ddd
 
 import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
