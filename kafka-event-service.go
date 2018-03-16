@@ -146,18 +146,27 @@ func (ks kafkaSubscriberService) OnMessageReceivedHandler() (func(message *kafka
 // handle kafka event and invoke right services
 func (ks kafkaSubscriberService) onKafkaMessageReceived(message *kafka.Message) (err error) {
 
-	//Store the DomainEvent
-	domainEvent, err := ks.store(message.Value)
+	//Retrieve the domainEvent from the received event
+	domainEvent, err := ks.toDomainEvent(message.Value)
 	if err != nil {
+		ks.Log("error", err.Error())
 		return
 	}
 
 	topic := *message.TopicPartition.Topic
 	eventType := domainEvent.EventType
 
-	//Use the map to call the function
+	//Use the map to check if the topic/event pair exists
 	if _, topicPrs := ks.funcMap[topic]; topicPrs {
 		if _, eventPrs := ks.funcMap[topic][eventType]; eventPrs {
+
+			//Store the received event
+			err = ks.EventStoreService.Store(&domainEvent, string(message.Value))
+			if err != nil {
+				return
+			}
+
+			//Call the method
 			err = ks.funcMap[topic][eventType](message)
 		}
 	}
@@ -166,7 +175,6 @@ func (ks kafkaSubscriberService) onKafkaMessageReceived(message *kafka.Message) 
 		//TODO : Error during call -> update db
 		ks.Log("error", err.Error())
 	}
-
 	return
 }
 
@@ -183,7 +191,7 @@ func (ks kafkaSubscriberService) toDomainEvent(value []byte) (DomainEvent, error
 
 	s := jsonParsed.Search("domainEvent").String()
 	if s == "{}" {
-		err = errors.New("cannot retrieve domain event in kafka message")
+		err = errors.New("cannot retrieve domainEvent in kafka message")
 		ks.Log("error", err.Error())
 		return domainEvent, err
 	}
@@ -214,4 +222,6 @@ func store(eventStoreService EventStoreService, event interface{}) (domainEvent 
 	err = eventStoreService.Store(&domainEvent, string(payload))
 	return
 }
+
+
 
