@@ -156,11 +156,10 @@ func (ks kafkaSubscriberService) onKafkaMessageReceived(message *kafka.Message) 
 	eventType := domainEvent.EventType
 
 	//Use the map to call the function
-	_, prs := ks.funcMap[topic]
-	if prs {
-		err = ks.funcMap[topic][eventType](message)
-	}else {
-		ks.Log("Warning", fmt.Sprintf("no function to call for %s", eventType))
+	if _, topicPrs := ks.funcMap[topic]; topicPrs {
+		if _, eventPrs := ks.funcMap[topic][eventType]; eventPrs {
+			err = ks.funcMap[topic][eventType](message)
+		}
 	}
 
 	if err != nil {
