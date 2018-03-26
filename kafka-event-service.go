@@ -230,7 +230,7 @@ func (ks kafkaSubscriberService) storeBytes(data []byte, topic string) (event Ev
 //Store the event from interface definition
 func (ks kafkaPublisherService) storeInterface(data interface{}, topic string) (event Event, payload []byte, err error) {
 	rf := reflect.ValueOf(data)
-	event = rf.FieldByName("event").Interface().(Event)
+	event = rf.FieldByName("Event").Interface().(Event)
 	payload = JsonEvent(data)
 	err = ks.doStore(&event, topic, string(payload))
 	return
