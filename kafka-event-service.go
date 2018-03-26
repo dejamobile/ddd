@@ -43,19 +43,33 @@ type kafkaSubscriberService struct {
 }
 
 //Store the DomainEvent and send the event
-func (ks kafkaPublisherService) Publish(event interface{}) (err error) {
-	domainEvent, jsonEvent, err := store(ks, event)
+func (ks kafkaPublisherService) Publish(data interface{}, topic string) (err error) {
+	_, jsonEvent, err := ks.storeInterface(data, topic)
 	if err != nil {
 		ks.Log("error", fmt.Sprintf("cannot store event : %s", err.Error()))
 		return
 	}
 	// publish event in kafka
 	ks.ProduceChannel() <- &kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &domainEvent.Aggregate.AggregateType, Partition: kafka.PartitionAny},
+		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
 		Value:          jsonEvent,
 		Key:            uuid.NewV4().Bytes(),
 	}
 	return
+}
+
+func (ks kafkaSubscriberService) doStore(event *Event, topic string, payload string) (error){
+	if ks.EventStoreService != nil {
+		return ks.EventStoreService.Store(event, topic, payload)
+	}
+	return nil
+}
+
+func (ks kafkaPublisherService) doStore(event *Event, topic string, payload string) (error){
+	if ks.EventStoreService != nil {
+		return ks.EventStoreService.Store(event, topic, payload)
+	}
+	return nil
 }
 
 func NewKafkaSubscriberService(brokerUrl string, groupId string, eventStoreService EventStoreService) (EventSubscriberService, error) {
@@ -147,21 +161,21 @@ func (ks kafkaSubscriberService) OnMessageReceivedHandler() (func(message *kafka
 func (ks kafkaSubscriberService) onKafkaMessageReceived(message *kafka.Message) (err error) {
 
 	//Retrieve the domainEvent from the received event
-	domainEvent, err := ks.toDomainEvent(message.Value)
+	event, err := ks.toEvent(message.Value)
 	if err != nil {
 		ks.Log("error", err.Error())
 		return
 	}
 
 	topic := *message.TopicPartition.Topic
-	eventType := domainEvent.EventType
+	eventType := event.EventType
 
 	//Use the map to check if the topic/event pair exists
 	if _, topicPrs := ks.funcMap[topic]; topicPrs {
 		if _, eventPrs := ks.funcMap[topic][eventType]; eventPrs {
 
 			//Store the received event
-			err = ks.EventStoreService.Store(&domainEvent, string(message.Value))
+			err = ks.doStore(&event, topic, string(message.Value))
 			if err != nil {
 				return
 			}
@@ -179,47 +193,46 @@ func (ks kafkaSubscriberService) onKafkaMessageReceived(message *kafka.Message) 
 }
 
 //Parse the event to retrieve the DomainEvent object
-func (ks kafkaSubscriberService) toDomainEvent(value []byte) (DomainEvent, error) {
+func (ks kafkaSubscriberService) toEvent(value []byte) (Event, error) {
 	var err error
 
-	domainEvent := DomainEvent{}
+	event := Event{}
 	jsonParsed, err := gabs.ParseJSON(value)
 	if err != nil {
 		ks.Log("error", fmt.Sprintf("Cannot parse JSON kafka message : %s", err.Error()))
-		return domainEvent, err
+		return event, err
 	}
 
-	s := jsonParsed.Search("domainEvent").String()
+	s := jsonParsed.Search("event").String()
 	if s == "{}" {
-		err = errors.New("cannot retrieve domainEvent in kafka message")
+		err = errors.New("cannot retrieve Event in kafka message")
 		ks.Log("error", err.Error())
-		return domainEvent, err
+		return event, err
 	}
 
-	err = json.Unmarshal([]byte(s), &domainEvent)
+	err = json.Unmarshal([]byte(s), &event)
 	if err != nil{
 		ks.Log("error", err.Error())
 	}
-	return domainEvent, err
+	return event, err
 }
 
-//Store the event from []byte
-func (ks kafkaSubscriberService) store(event []byte) (domainEvent DomainEvent, err error) {
-	domainEvent, err = ks.toDomainEvent(event)
+//Store the event from []byte definition
+func (ks kafkaSubscriberService) storeBytes(data []byte, topic string) (event Event, err error) {
+	event, err = ks.toEvent(data)
 	if err != nil {
 		return
 	}
-	err = ks.Store(&domainEvent, string(event))
+	err = ks.doStore(&event, topic, string(data))
 	return
 }
 
-//Store the event from interface
-func store(eventStoreService EventStoreService, event interface{}) (domainEvent DomainEvent, payload []byte, err error) {
-	rf := reflect.ValueOf(event)
-	domainEvent = rf.FieldByName("DomainEvent").Interface().(DomainEvent)
-	payload = JsonEvent(event)
-	// call EventStoreService
-	err = eventStoreService.Store(&domainEvent, string(payload))
+//Store the event from interface definition
+func (ks kafkaPublisherService) storeInterface(data interface{}, topic string) (event Event, payload []byte, err error) {
+	rf := reflect.ValueOf(data)
+	event = rf.FieldByName("event").Interface().(Event)
+	payload = JsonEvent(data)
+	err = ks.doStore(&event, topic, string(payload))
 	return
 }
 

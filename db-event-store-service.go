@@ -32,7 +32,7 @@ func (es *eventStoreService) Initialize() {
 	}
 }
 
-func (es eventStoreService) Store(event *DomainEvent, payload string) (err error) {
+func (es eventStoreService) Store(event *Event, topic string, payload string) (err error) {
 	log.Printf("Entering  eventStoreService.Store [ %s ]\n", event.EventType)
 	// check if nil pointer passed
 	if event == nil {
@@ -52,8 +52,7 @@ func (es eventStoreService) Store(event *DomainEvent, payload string) (err error
 		eventUuid.Bytes(),
 		"RECORDED",
 		event.EventType,
-		event.Aggregate.AggregateType,
-		uuid.Must(uuid.FromString(event.Aggregate.Id)).Bytes(),
+		topic,
 		payload,
 		uuid.Must(uuid.FromString(event.TraceId)).Bytes(),
 		event.When,
@@ -67,6 +66,6 @@ func (es eventStoreService) Store(event *DomainEvent, payload string) (err error
 }
 
 const (
-	findEventById = "SELECT uuid, status, event_type, aggregate_type, aggregate_id, payload, trace_id, event_when FROM event WHERE uuid = ?"
-	saveEvent     = "INSERT INTO event(uuid, status, event_type, aggregate_type, aggregate_id, payload, trace_id, event_when) SELECT ?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT uuid from event WHERE uuid = ?)"
+	findEventById = "SELECT uuid, status, event_type, topic, payload, trace_id, event_when FROM event WHERE uuid = ?"
+	saveEvent     = "INSERT INTO event(uuid, status, event_type, topic, payload, trace_id, event_when) SELECT ?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT uuid from event WHERE uuid = ?)"
 )

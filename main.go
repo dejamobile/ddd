@@ -6,23 +6,37 @@ The main.go file is only here for test purpose
 package ddd
 
 import (
+	"os"
+	"fmt"
+	"net/http"
+	"encoding/json"
+
+	"github.com/gorilla/mux"
+	"github.com/satori/go.uuid"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
-/*
+
 var (
-	eventPublisherService domain.EventPublisherService
-	eventSubscriberService domain.EventSubscriberService
+	eventPublisherService EventPublisherService
+	eventSubscriberService EventSubscriberService
 )
 
 //Event sent and received from Kafka, which contains the DomainEvent to save
 type GenericEvent struct {
-	domain.DomainEvent        `json:"domainEvent"`
+	Event        	   `json:"event"`
 	Data 		string `json:"data"`
 }
 
 type AnotherEvent struct {
-	domain.DomainEvent        `json:"domainEvent"`
-	GenericRequest				`json:"genericRequest"`
+	Event       		`json:"event"`
+	GenericRequest		`json:"genericRequest"`
+	Data 		string `json:"data"`
+}
+
+type AnAggregateEvent struct {
+	AggregateEvent       `json:"aggregateEvent"`
+	GenericRequest		`json:"genericRequest"`
 	Data 		string `json:"data"`
 }
 
@@ -38,17 +52,17 @@ func main() {
 	datasource := os.Getenv("DATASOURCE")
 
 	//Event store service
-	eventStoreService := infrastructure.NewEventStoreService(datasource)
+	eventStoreService := NewEventStoreService(datasource)
 	go eventStoreService.Initialize()
 
 	//Event publisher
-	eventPublisherService, err = infrastructure.NewKafkaPublisherService(brokerUrl, eventStoreService)
+	eventPublisherService, err = NewKafkaPublisherService(brokerUrl, eventStoreService)
 	if err != nil {
 		fmt.Println("cannot build eventPublisherService : ", err.Error())
 	}
 
 	//Event subscriber
-	eventSubscriberService, err := infrastructure.NewKafkaSubscriberService(brokerUrl, "issuer-adapter-aes-vts", eventStoreService)
+	eventSubscriberService, err := NewKafkaSubscriberService(brokerUrl, "issuer-adapter-aes-vts", eventStoreService)
 	if err != nil {
 		fmt.Println("cannot build kafka event subscriber service : ", err.Error())
 	}
@@ -79,28 +93,25 @@ func sendEventHandler(w http.ResponseWriter, r *http.Request){
 
 	//Create the event
 	traceId := uuid.NewV4()
-	aggregateId := uuid.NewV4()
 	event := GenericEvent{
-		DomainEvent: domain.NewDomainEvent(
+		Event: NewEvent(
 			traceId.String(),
 			"genericEvent",
-			domain.NewAggregate("domain.genericEvent",aggregateId.String()),
 		),
 		Data: p.Title + " | " + p.Data,
 	}
 
 	//Publish it through Kafka
-	eventPublisherService.Publish(event)
+	eventPublisherService.Publish(event, "domain.genericEvent")
 
 
 	//Create the event
 	traceId2 := uuid.NewV4()
-	aggregateId2 := uuid.NewV4()
+	//aggregateId2 := uuid.NewV4()
 	event2 := AnotherEvent{
-		DomainEvent: domain.NewDomainEvent(
+		Event: NewEvent(
 			traceId2.String(),
-			"anotherEvent",
-			domain.NewAggregate("domain.genericEvent",aggregateId2.String()),
+			"genericEvent",
 		),
 		GenericRequest: GenericRequest{
 			Title: p.Title,
@@ -110,7 +121,7 @@ func sendEventHandler(w http.ResponseWriter, r *http.Request){
 	}
 
 	//Publish it through Kafka
-	eventPublisherService.Publish(event2)
+	eventPublisherService.Publish(event2, "domain.genericEvent")
 
 	//Http response
 	w.Write([]byte(p.Title + " | " + p.Data))
@@ -122,7 +133,7 @@ func genericEventHandler(message *kafka.Message) (err error){
 
 	//Parse kafkaMessage
 	event := GenericEvent{}
-	domain.ParseEvent(message.Value, &event)
+	ParseEvent(message.Value, &event)
 
 	//Process the event
 	fmt.Println(event)
@@ -135,12 +146,12 @@ func anotherEventHandler(message *kafka.Message) (err error){
 
 	//Parse kafkaMessage
 	event := AnotherEvent{}
-	domain.ParseEvent(message.Value, &event)
+	ParseEvent(message.Value, &event)
 
 	//Process the event
 	fmt.Println(event)
 
 	return
-}*/
+}
 
 
