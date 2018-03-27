@@ -24,12 +24,12 @@ var (
 
 //Event sent and received from Kafka, which contains the DomainEvent to save
 type GenericEvent struct {
-	Event        	   `json:"event"`
+	AggregateEvent 		`json:"aggregateEvent"`
 	Data 		string `json:"data"`
 }
 
 type AnotherEvent struct {
-	Event       		`json:"event"`
+	SagaEvent 		`json:"sagaEvent"`
 	GenericRequest		`json:"genericRequest"`
 	Data 		string `json:"data"`
 }
@@ -94,25 +94,15 @@ func sendEventHandler(w http.ResponseWriter, r *http.Request){
 	//Create the event
 	traceId := uuid.NewV4()
 	event := GenericEvent{
-		Event: NewEvent(
-			traceId.String(),
-			"genericEvent",
-		),
+		AggregateEvent: NewAggregateEvent("genericType", traceId.String(), "Generic", "123456" ),
 		Data: p.Title + " | " + p.Data,
 	}
 
 	//Publish it through Kafka
-	eventPublisherService.Publish(event, "domain.genericEvent")
+	eventPublisherService.Publish(event)
 
-
-	//Create the event
-	traceId2 := uuid.NewV4()
-	//aggregateId2 := uuid.NewV4()
 	event2 := AnotherEvent{
-		Event: NewEvent(
-			traceId2.String(),
-			"genericEvent",
-		),
+		SagaEvent: NewSagaEvent("AddToken", traceId.String(), "anotherEvent"),
 		GenericRequest: GenericRequest{
 			Title: p.Title,
 			Data:  p.Data,
@@ -121,7 +111,7 @@ func sendEventHandler(w http.ResponseWriter, r *http.Request){
 	}
 
 	//Publish it through Kafka
-	eventPublisherService.Publish(event2, "domain.genericEvent")
+	eventPublisherService.Publish(event2)
 
 	//Http response
 	w.Write([]byte(p.Title + " | " + p.Data))

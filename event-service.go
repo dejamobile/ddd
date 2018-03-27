@@ -5,7 +5,7 @@ import (
 )
 
 type EventPublisherService interface {
-	Publish(event interface{}, topic string) error
+	Publish(event interface{}) error
 }
 
 type EventSubscriberService interface {

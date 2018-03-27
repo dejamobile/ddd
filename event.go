@@ -8,6 +8,12 @@ import (
 	"fmt"
 )
 
+const (
+	sagaTopicPrefix         = "domain.saga."
+	aggregateTopicPrefix = "domain.aggregate."
+)
+
+
 func NewEvent(traceId string, eventType string) Event {
 	return Event{
 		Uuid:      uuid.NewV4().String(),
@@ -17,11 +23,19 @@ func NewEvent(traceId string, eventType string) Event {
 	}
 }
 
-func NewAggregateEvent(aggregateType string, aggregateId string, event Event) AggregateEvent {
+func NewAggregateEvent(eventType string, traceId string, aggregateType string, aggregateId string) AggregateEvent {
 	return AggregateEvent{
-		Event: event,
+		Event: NewEvent(traceId, eventType),
 		AggregateType: aggregateType,
-		Id:            aggregateId,
+		AggregateId:   aggregateId,
+	}
+}
+
+func NewSagaEvent(sagaType string, sagaId string, eventType string) SagaEvent {
+	return SagaEvent{
+		Event: NewEvent(sagaId, eventType),
+		SagaId:   sagaId,
+		SagaType: sagaType,
 	}
 }
 
@@ -30,6 +44,7 @@ type Event struct {
 	EventType string    	`json:"eventType"`
 	When      string    	`json:"when"`
 	TraceId   string    	`json:"traceId"`
+
 }
 
 type TracingEvent struct {
@@ -46,8 +61,14 @@ type FCMNotificationEvent struct {
 
 type AggregateEvent struct {
 	Event						   `json:"event"`
-	AggregateType 			string `json:"type"`
-	Id            			string `json:"id"`
+	AggregateType 			string `json:"aggregateType"`
+	AggregateId            			string `json:"aggregateId"`
+}
+
+type SagaEvent struct {
+	Event						   `json:"event"`
+	SagaType 			string 		`json:"sagaType"`
+	SagaId            			string `json:"sagaId"`
 }
 
 

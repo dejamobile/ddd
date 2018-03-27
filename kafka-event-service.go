@@ -43,8 +43,9 @@ type kafkaSubscriberService struct {
 }
 
 //Store the DomainEvent and send the event
-func (ks kafkaPublisherService) Publish(data interface{}, topic string) (err error) {
-	_, jsonEvent, err := ks.storeInterface(data, topic)
+func (ks kafkaPublisherService) Publish(data interface{}) (err error) {
+
+	topic, jsonEvent, err := ks.storeInterface(data)
 	if err != nil {
 		ks.Log("error", fmt.Sprintf("cannot store event : %s", err.Error()))
 		return
@@ -160,7 +161,7 @@ func (ks kafkaSubscriberService) OnMessageReceivedHandler() (func(message *kafka
 // handle kafka event and invoke right services
 func (ks kafkaSubscriberService) onKafkaMessageReceived(message *kafka.Message) (err error) {
 
-	//Retrieve the domainEvent from the received event
+	//Retrieve the Event object from the received event
 	event, err := ks.toEvent(message.Value)
 	if err != nil {
 		ks.Log("error", err.Error())
@@ -175,7 +176,7 @@ func (ks kafkaSubscriberService) onKafkaMessageReceived(message *kafka.Message) 
 		if _, eventPrs := ks.funcMap[topic][eventType]; eventPrs {
 
 			//Store the received event
-			err = ks.doStore(&event, topic, string(message.Value))
+			err = ks.storeBytes(&event, topic, message.Value)
 			if err != nil {
 				return
 			}
@@ -217,21 +218,34 @@ func (ks kafkaSubscriberService) toEvent(value []byte) (Event, error) {
 	return event, err
 }
 
-//Store the event from []byte definition
-func (ks kafkaSubscriberService) storeBytes(data []byte, topic string) (event Event, err error) {
-	event, err = ks.toEvent(data)
-	if err != nil {
-		return
-	}
-	err = ks.doStore(&event, topic, string(data))
+//Store the event from []byte
+func (ks kafkaSubscriberService) storeBytes(event *Event, topic string, data []byte) (err error) {
+	err = ks.doStore(event, topic, string(data))
 	return
 }
 
-//Store the event from interface definition
-func (ks kafkaPublisherService) storeInterface(data interface{}, topic string) (event Event, payload []byte, err error) {
+//Store the event from interface
+func (ks kafkaPublisherService) storeInterface(data interface{}) (topic string, payload []byte, err error) {
 	rf := reflect.ValueOf(data)
-	event = rf.FieldByName("Event").Interface().(Event)
+	event := rf.FieldByName("Event").Interface().(Event)
 	payload = JsonEvent(data)
+
+	payloadParsed, err := gabs.ParseJSON(payload)
+	if err != nil {
+		ks.Log("error", fmt.Sprintf("Cannot parse JSON kafka message : %s", err.Error()))
+		return
+	}
+
+	if value, ok := payloadParsed.Path("sagaEvent.sagaType").Data().(string); ok == true {
+		topic = sagaTopicPrefix + value
+	} else if value, ok := payloadParsed.Path("aggregateEvent.aggregateType").Data().(string); ok == true {
+		topic = aggregateTopicPrefix + value
+	} else {
+		err = errors.New("Cannot find any topic")
+		ks.Log("error", fmt.Sprintf("%s", err.Error()))
+		return
+	}
+
 	err = ks.doStore(&event, topic, string(payload))
 	return
 }
